@@ -18,6 +18,13 @@ const (
 	StatePlay
 )
 
+type HandshakeInfo struct {
+	ProtocolVersion VarInt
+	Address String
+	Port UShort
+	NextState ConnectionState
+}
+
 type Packet struct {
 	ID      int32
 	Payload []byte

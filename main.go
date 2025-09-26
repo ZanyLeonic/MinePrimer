@@ -56,35 +56,46 @@ func HandleConnection(c net.Conn) {
 	log.Printf("State received -> %v\n", next)
 }
 
-func HandleHandshake(pkt *protocol.Packet) (protocol.ConnectionState, error) {
+func HandleHandshake(pkt *protocol.Packet) (protocol.HandshakeInfo, error) {
 	buf := bytes.NewReader(pkt.Payload)
+	handshakeInfo := protocol.HandshakeInfo{}
 
 	protoVer, err := protocol.ReadVarInt(buf)
 	if err != nil {
-		return protocol.StateHandshake, err
+		return handshakeInfo, err
 	}
 
 	addr, err := protocol.ReadString(buf)
 	if err != nil {
-		return protocol.StateHandshake, err
+		return handshakeInfo, err
 	}
 
 	port, err := protocol.ReadUnsignedShort(buf)
 	if err != nil {
-		return protocol.StateHandshake, err
+		return handshakeInfo, err
 	}
 
 	nextState, err := protocol.ReadVarInt(buf)
 	if err != nil {
-		return protocol.StateHandshake, err
+		return handshakeInfo, err
+	}
+
+	handshakeInfo = protocol.HandshakeInfo{
+		ProtocolVersion: protoVer,
+		Address: addr,
+		Port: port,
+		NextState: protocol.ConnectionState(nextState),
 	}
 
 	log.Printf("Handshake proto=%d addr=%s port=%d next=%d\n", protoVer, addr, port, nextState)
 	if nextState == 1 {
-		return protocol.StateStatus, nil
+		return handshakeInfo, nil
 	} else if nextState == 2 {
-		return protocol.StateLogin, nil
+		return handshakeInfo, nil
 	} 
 
-	return protocol.StateHandshake, fmt.Errorf("unknown next state %d", nextState)
+	return handshakeInfo, fmt.Errorf("unknown next state %d", nextState)
+}
+
+func HandleStatusState(c net.Conn, h protocol.HandshakeInfo) {
 }
