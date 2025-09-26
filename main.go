@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -46,11 +47,13 @@ func HandleConnection(c net.Conn) {
 		return
 	}
 
-	_, err = HandleHandshake(pkt)
+	next, err := HandleHandshake(pkt)
 	if err != nil {
 		log.Printf("Handshake parse error: %v", err)
 		return
 	}
+
+	log.Printf("State received -> %v\n", next)
 }
 
 func HandleHandshake(pkt *protocol.Packet) (protocol.ConnectionState, error) {
@@ -61,7 +64,27 @@ func HandleHandshake(pkt *protocol.Packet) (protocol.ConnectionState, error) {
 		return protocol.StateHandshake, err
 	}
 
-	log.Printf("Protocol version: %d", protoVer)
+	addr, err := protocol.ReadString(buf)
+	if err != nil {
+		return protocol.StateHandshake, err
+	}
 
-	return protocol.StateHandshake, nil
+	port, err := protocol.ReadUnsignedShort(buf)
+	if err != nil {
+		return protocol.StateHandshake, err
+	}
+
+	nextState, err := protocol.ReadVarInt(buf)
+	if err != nil {
+		return protocol.StateHandshake, err
+	}
+
+	log.Printf("Handshake proto=%d addr=%s port=%d next=%d\n", protoVer, addr, port, nextState)
+	if nextState == 1 {
+		return protocol.StateStatus, nil
+	} else if nextState == 2 {
+		return protocol.StateLogin, nil
+	} 
+
+	return protocol.StateHandshake, fmt.Errorf("unknown next state %d", nextState)
 }
