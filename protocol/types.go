@@ -5,17 +5,20 @@ import (
 	"io"
 )
 
-const ( SegmentBit = 0x7F
-ContinueBit = 0x80
-
-MaxVarIntBytes = 5 )
+const ( 
+	SegmentBit = 0x7F
+	ContinueBit = 0x80
+	MaxVarIntBytes = 5 
+)
 
 type (
 	VarInt int32
 )
 
-func (v *VarInt) ReadVarInt(r io.Reader) (numRead int32, err error) {
+func ReadVarInt(r io.Reader) (VarInt, error) {
 	var result int32
+	var numRead int
+
 	for {
 		if numRead >= MaxVarIntBytes {
 			return 0, errors.New("varint too big")
@@ -37,22 +40,21 @@ func (v *VarInt) ReadVarInt(r io.Reader) (numRead int32, err error) {
 		}
 	}
 
-	*v = VarInt(result)
-	return numRead, err
+	return VarInt(result), nil
 }
 
-func (v VarInt) WriteVarInt(w io.Writer) error {
+func WriteVarInt(w io.Writer, value VarInt) error {
 	for {
-		if (v & ^SegmentBit) == 0 {
-			b := []byte{byte(v)}
+		if (value & ^SegmentBit) == 0 {
+			b := []byte{byte(value)}
 			_, err := w.Write(b)
 			return err
 		}
-		b := byte((v & SegmentBit) | ContinueBit)
+		b := byte((value & SegmentBit) | ContinueBit)
 		_, err := w.Write([]byte{b})
 		if err != nil {
 			return err
 		}
-		v >>= 7
+		value >>= 7
 	}
 }
