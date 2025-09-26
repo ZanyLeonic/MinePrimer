@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -54,6 +55,11 @@ func HandleConnection(c net.Conn) {
 	}
 
 	log.Printf("State received -> %v\n", next)
+
+	switch next.NextState {
+	case protocol.StateStatus:
+		HandleStatusState(c, next)
+	}
 }
 
 func HandleHandshake(pkt *protocol.Packet) (protocol.HandshakeInfo, error) {
@@ -98,4 +104,43 @@ func HandleHandshake(pkt *protocol.Packet) (protocol.HandshakeInfo, error) {
 }
 
 func HandleStatusState(c net.Conn, h protocol.HandshakeInfo) {
+	for {
+		pkt, err := protocol.ReadPacket(c)
+		if err != nil {
+			log.Printf("Cannot read status: %v\n", err)
+			return
+		}
+
+		switch pkt.ID {
+		case 0x00:
+			status := protocol.PingStatus{
+				Version: protocol.StatusVersion{
+					Name: "Server on Standby", Protocol: int(h.ProtocolVersion),
+				}, 
+				Players: protocol.StatusPlayerInfo{
+					Max: 20, 
+					Online: 0,
+				}, 
+				Description: protocol.StatusDescription{Text: "Server is on standby"},
+			}
+
+			b, err := json.Marshal(status)
+			if err != nil {
+				log.Printf("Cannot marshal Status JSON: %v\n", err)
+				return
+			}
+
+			var payload bytes.Buffer
+
+			protocol.WriteString(&payload, protocol.String(b))
+			protocol.WritePacket(c, 0x00, payload.Bytes())
+
+			log.Printf("Sent response %s\n", string(b))
+		case 0x01:
+			protocol.WritePacket(c, 0x01, pkt.Payload)
+			log.Printf("ping len=%d\n", len(pkt.Payload))
+		default:
+			log.Printf("Unknown status packet id=0x%02X", pkt.ID)
+		}
+	}
 }
