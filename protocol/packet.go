@@ -9,6 +9,15 @@ import (
 
 const MaxPacketSize = 3 * 3 * 1024
 
+// ConnectionState for all the states
+type ConnectionState int
+const (
+	StateHandshake ConnectionState = iota
+	StateStatus
+	StateLogin
+	StatePlay
+)
+
 type Packet struct {
 	ID      int32
 	Payload []byte
